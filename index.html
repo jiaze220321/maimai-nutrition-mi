@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>麦麦营养搭配咪 · 麦当劳健康套餐搭配</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="assets/pixel-cat-walk.gif">
+</head>
+<body>
+<div class="scanlines" aria-hidden="true"></div>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="brand">
+      <span class="brand-m" aria-hidden="true">M</span>
+      <div>
+        <h1>麦麦营养搭配咪</h1>
+        <p class="subtitle">预算 + 忌口 + 目标，一次配好主餐 · 配餐 · 饮料</p>
+      </div>
+    </div>
+    <div class="badge-wrap">
+      <span class="badge" id="modeBadge" data-mode="loading">检测中…</span>
+      <span class="badge-note" id="modeNote">正在读取数据源</span>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="stage" aria-label="猫咪与点单面板">
+    <div class="cat-zone">
+      <div class="cat-frame">
+        <img id="catImg" class="cat" src="assets/pixel-cat-walk.gif" alt="像素风橘猫" width="128" height="128">
+      </div>
+      <div class="bubble" id="bubble" role="status" aria-live="polite">喵。先选个预算，剩下的交给我。</div>
+    </div>
+
+    <div class="panel">
+      <div class="field">
+        <label class="field-label" for="budget">
+          预算上限 <output id="budgetOut" for="budget">40 元</output>
+        </label>
+        <input type="range" id="budget" min="15" max="60" step="1" value="40"
+               aria-describedby="budgetHint">
+        <div class="scale" aria-hidden="true"><span>15 元</span><span>40 元</span><span>60 元</span></div>
+        <p class="hint" id="budgetHint">按套餐总价（主餐 + 配餐 + 饮料）约束，含饮料热量。</p>
+      </div>
+
+      <div class="field">
+        <span class="field-label">饮食目标 <em>可多选</em></span>
+        <div class="chips" id="goalChips" role="group" aria-label="饮食目标"></div>
+      </div>
+
+      <details class="field field-collapse" id="filterBox">
+        <summary>
+          忌口 / 过敏原
+          <span class="summary-state" id="filterCount">未设置（硬过滤）</span>
+        </summary>
+        <p class="hint">命中即整条商品出局，不做「尽量避开」。过敏原标注为按餐品构成推断，严重过敏请以官方包装为准。</p>
+        <div class="chip-group" id="allergenGroup" aria-label="过敏原"></div>
+        <div class="chip-group" id="exclusionGroup" aria-label="忌口"></div>
+      </details>
+
+      <div class="actions">
+        <button id="btnMix" class="btn-primary" type="button">
+          <span class="btn-icon" aria-hidden="true">🍔</span> 帮我搭配
+        </button>
+        <button id="btnReset" class="btn-ghost" type="button">清空条件</button>
+      </div>
+      <p class="hint hint-strong" id="poolHint">候选池：—</p>
+    </div>
+  </section>
+
+  <section class="results" id="results" aria-live="polite">
+    <div class="state state-loading" id="stateLoading" hidden>
+      <div class="pixel-loader" aria-hidden="true"><span></span><span></span><span></span></div>
+      <p>猫咪正在翻菜单，顺便算热量…</p>
+    </div>
+
+    <div class="state state-error" id="stateError" hidden>
+      <h2>数据没接上</h2>
+      <p id="errorText"></p>
+      <p class="hint">可先执行 <code>python tools/build_data.py</code> 生成数据文件，或在 WorkBuddy 中启用 mcd-mcp 连接器后重新抓取。</p>
+    </div>
+
+    <div class="state state-empty" id="stateEmpty" hidden>
+      <h2>这套条件配不出 3 个套餐</h2>
+      <p id="emptyText"></p>
+      <ul class="suggest" id="emptySuggest"></ul>
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <p class="result-meta" id="resultMeta" hidden></p>
+  </section>
+</main>
+
+<footer class="footnote">
+  <p class="disclaimer">
+    <strong>免责声明：</strong>本作品为麦当劳程序员创意开发大赛参赛演示，营养建议仅供参考，
+    不替代专业医疗或注册营养师意见；孕期、慢性病、用药期或严重过敏人群请咨询专业人士。
+    演示模式（fallback）数据为固定演示数据，非实时官方数据；营养百分比与慢跑等效均为估算值，参考口径为
+    轻体力活动成年人 2000 kcal/日，慢跑按约 60 kg、8 km/h 估算，仅为约数。
+  </p>
+  <p class="source" id="sourceLine">数据源：加载中…</p>
+</footer>
+
+<!-- 数据（file:// 下也可读取，由 tools/build_data.py 生成） -->
+<script src="data/mcp_snapshot.js"></script>
+<script src="data/fallback_data.js"></script>
+<script src="data/allergen_map.js"></script>
+<script src="data/cat_lines.js"></script>
+
+<!-- 逻辑 -->
+<script src="js/data.js"></script>
+<script src="js/filter.js"></script>
+<script src="js/combo.js"></script>
+<script src="js/score.js"></script>
+<script src="js/cat.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

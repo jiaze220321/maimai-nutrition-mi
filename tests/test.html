@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>麦麦营养搭配咪 · 浏览器测试</title>
+<style>
+  body { font-family: ui-monospace, Consolas, "Microsoft YaHei", monospace; background: #FFF6E3; color: #231815; margin: 0; padding: 24px; }
+  h1 { font-size: 20px; letter-spacing: 1px; }
+  .sum { display: inline-block; padding: 6px 12px; border: 3px solid #231815; background: #FFC72C; font-weight: 700; box-shadow: 4px 4px 0 #231815; }
+  ol { padding-left: 20px; }
+  li { margin: 4px 0; font-size: 13px; }
+  .ok::marker { color: #2E7D32; }
+  .bad { color: #DA291C; font-weight: 700; }
+  .bad::marker { color: #DA291C; }
+  a { color: #DA291C; }
+</style>
+</head>
+<body>
+<h1>麦麦营养搭配咪 · 浏览器自测</h1>
+<p class="sum" id="summary">运行中…</p>
+<ol id="list"></ol>
+<p><a href="../index.html">← 回到主页面</a></p>
+
+<script src="../data/mcp_snapshot.js"></script>
+<script src="../data/fallback_data.js"></script>
+<script src="../data/allergen_map.js"></script>
+<script src="../js/data.js"></script>
+<script src="../js/filter.js"></script>
+<script src="../js/combo.js"></script>
+<script src="../js/score.js"></script>
+<script>
+(function () {
+  var pass = 0, fail = 0;
+  var list = document.getElementById('list');
+  function test(name, fn) {
+    var li = document.createElement('li');
+    try {
+      fn();
+      pass++;
+      li.className = 'ok';
+      li.textContent = '✓ ' + name;
+    } catch (e) {
+      fail++;
+      li.className = 'bad';
+      li.textContent = '✗ ' + name + ' — ' + e.message;
+    }
+    list.appendChild(li);
+  }
+  function assert(c, m) { if (!c) throw new Error(m || '断言失败'); }
+  function eq(a, b, m) { if (a !== b) throw new Error((m || '不相等') + ': ' + a + ' ≠ ' + b); }
+
+  var captured = Date.parse(MCD_SNAPSHOT.capturedAt);
+  var HOUR = 3600000;
+
+  test('新鲜快照判定为实时 MCP 模式', function () {
+    eq(MCDData.load({ now: captured + HOUR }).mode, 'mcp');
+  });
+  test('快照过期自动降级为演示模式', function () {
+    var d = MCDData.load({ now: captured + 30 * 24 * HOUR });
+    eq(d.mode, 'demo');
+    assert(/过期/.test(d.reason), '应说明过期原因');
+  });
+  test('每种过敏原硬过滤后无泄漏', function () {
+    var d = MCDData.load({ now: captured + HOUR });
+    MCD_ALLERGEN_MAP.allergens.forEach(function (rule) {
+      var res = MCDFilter.hardFilter(d.items, { allergens: [rule.id] });
+      res.passed.forEach(function (it) {
+        assert(it.allergens.indexOf(rule.id) === -1, rule.label + ' 泄漏: ' + it.name);
+      });
+    });
+  });
+  test('预算 40 元内组合均不超支', function () {
+    var d = MCDData.load({ now: captured + HOUR });
+    var pool = MCDFilter.classify(d.items);
+    var combos = MCDCombo.generate(pool, { budgetMax: 40 }).combos;
+    assert(combos.length >= 9, '组合数不足: ' + combos.length);
+    combos.forEach(function (c) { assert(c.totalPrice <= 40.000001, '超预算 ' + c.totalPrice); });
+  });
+  test('套餐固定为主餐+配餐+饮料', function () {
+    var d = MCDData.load({ now: captured + HOUR });
+    var combos = MCDCombo.generate(MCDFilter.classify(d.items), { budgetMax: 50 }).combos;
+    combos.forEach(function (c) {
+      eq(c.items.map(function (i) { return i.category; }).join(','), 'main,side,drink');
+    });
+  });
+  test('评分权重合计为 1', function () {
+    var sum = 0;
+    Object.keys(MCDScore.WEIGHTS).forEach(function (k) { sum += MCDScore.WEIGHTS[k]; });
+    assert(Math.abs(sum - 1) < 1e-9, '权重和 ' + sum);
+  });
+  test('评分结果包含标签、理由与慢跑等效', function () {
+    var d = MCDData.load({ now: captured + HOUR });
+    var combos = MCDCombo.generate(MCDFilter.classify(d.items), { budgetMax: 45 }).combos;
+    var r = MCDScore.rank(combos, ['fat_loss'])[0];
+    assert(r.score > 0 && r.score <= 100, '分数越界');
+    assert(r.labels.length > 0, '缺少标签');
+    assert(r.reason.length > 10, '理由过短');
+    assert(r.jogMin > 0, '缺少慢跑等效');
+  });
+  test('零糖饮料组合带「零糖饮料」标签', function () {
+    var d = MCDData.load({ now: captured + HOUR });
+    var combos = MCDCombo.generate(MCDFilter.classify(d.items), { budgetMax: 45 }).combos;
+    var zero = combos.filter(function (c) { return c.drink.nutrition.sugarG <= 1; })[0];
+    assert(zero, '应存在零糖组合');
+    assert(MCDScore.scoreCombo(zero, ['fat_loss']).labels.indexOf('零糖饮料') !== -1, '缺标签');
+  });
+  test('超低预算返回空组合并能给出最低可行价', function () {
+    var d = MCDData.load({ now: captured + HOUR });
+    var pool = MCDFilter.classify(d.items);
+    eq(MCDCombo.generate(pool, { budgetMax: 12 }).combos.length, 0);
+    assert(MCDCombo.cheapestPossible(pool).price > 12, '最低价应高于预算');
+  });
+  test('轮换 3 轮不重复（模拟）', function () {
+    var d = MCDData.load({ now: captured + HOUR });
+    var ranked = MCDScore.rank(MCDCombo.generate(MCDFilter.classify(d.items), { budgetMax: 40 }).combos, ['fat_loss']);
+    var history = [], seen = {};
+    for (var round = 0; round < 3; round++) {
+      var available = ranked.filter(function (r) { return history.indexOf(r.combo.id) === -1; });
+      if (available.length < 3) { history = history.slice(-3); available = ranked; }
+      var used = {}, picked = [];
+      available.forEach(function (r) {
+        if (picked.length < 3 && !used[r.combo.main.code]) { used[r.combo.main.code] = 1; picked.push(r); }
+      });
+      available.forEach(function (r) { if (picked.length < 3 && picked.indexOf(r) === -1) picked.push(r); });
+      picked.forEach(function (p) {
+        assert(!seen[p.combo.id], '第 ' + (round + 1) + ' 轮重复');
+        seen[p.combo.id] = 1;
+      });
+      history = history.concat(picked.map(function (p) { return p.combo.id; })).slice(-9);
+    }
+  });
+
+  document.getElementById('summary').textContent = pass + ' 通过 / ' + fail + ' 失败';
+  document.getElementById('summary').style.background = fail ? '#FFD9D4' : '#C8E6C9';
+})();
+</script>
+</body>
+</html>
