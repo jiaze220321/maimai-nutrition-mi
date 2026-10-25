@@ -72,7 +72,7 @@
     var t = Date.parse(meta.capturedAt);
     if (isNaN(t)) return false;
     var hours = (now - t) / 3600000;
-    var limit = num(meta.expiresAfterHours) || 168;
+    var limit = num(meta.expiresAfterHours) || 24;
     return hours <= limit; // 允许时钟轻微偏移；过期即视为不可用
   }
 

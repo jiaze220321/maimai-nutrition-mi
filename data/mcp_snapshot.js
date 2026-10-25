@@ -4,7 +4,7 @@ window.MCD_SNAPSHOT = {
   "schemaVersion": "1.0.0",
   "dataKind": "mcp",
   "capturedAt": "2026-10-22T22:25:45+08:00",
-  "expiresAfterHours": 168,
+  "expiresAfterHours": 24,
   "source": {
     "server": "https://mcp.mcd.cn",
     "protocol": "streamablehttp",
